@@ -3,10 +3,10 @@
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import com.opencsv.CSVReader;
-import com.opencsv.bean.ColumnPositionMappingStrategy;
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
+import org.w3c.dom.*;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -22,22 +22,53 @@ public class Main {
         return gson.toJson(list, listType);
 }
 
-    private static List<Employee> parseCSV(String[] columnMapping, String fileName) throws IOException {
-        try (CSVReader csvReader = new CSVReader(new FileReader(fileName))) {
-            ColumnPositionMappingStrategy<Employee> strategy =
-                    new ColumnPositionMappingStrategy<>();
-            strategy.setType(Employee.class);
-            strategy.setColumnMapping(columnMapping);
-            CsvToBean<Employee> csv = new CsvToBeanBuilder<Employee>(csvReader)
-                    .withMappingStrategy(strategy)
-                    .build();
-            List<Employee> list = csv.parse();
-            return list;
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static void parseXML(String nameFile) {
+        try {
+            DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
+            Document document = documentBuilder.parse(new File(nameFile));
+            Node node = document.getDocumentElement();
+            read(node);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
-        return null;
     }
+
+    public static void read(Node node) {
+
+        NodeList nodeList = node.getChildNodes();
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node1 = nodeList.item(i);
+            if (Node.ELEMENT_NODE == node1.getNodeType()) {
+                System.out.println("Текущий узел: " + node1.getNodeName());
+                if (node1.getNodeName().equals("employee")) {
+                    Employee employee = createEmployee(node1);
+                    employeeList.add(employee);
+                }
+                Element element = (Element) node1;
+                NamedNodeMap map = element.getAttributes();
+                for (int j = 0; j < map.getLength(); j++) {
+                    String attrName = map.item(j).getNodeName();
+                    String attrValue = map.item(j).getNodeValue();
+                    System.out.println("Атрибут: " + attrName + " ; Значение: " + attrValue);
+                }
+                read(node1);
+            }
+        }
+    }
+
+    private static Employee createEmployee(Node node) {
+        Element element = (Element) node;
+        String id = element.getElementsByTagName("id").item(0).getTextContent();
+        String firstName = element.getElementsByTagName("firstName").item(0).getTextContent();
+        String lastName = element.getElementsByTagName("lastName").item(0).getTextContent();
+        String country = element.getElementsByTagName("country").item(0).getTextContent();
+        String age = element.getElementsByTagName("age").item(0).getTextContent();
+        Employee employee = new Employee(Long.parseLong(id), firstName,lastName,country,Integer.parseInt(age));
+        return employee;
+    }
+
+
     private static void writeString(String jsonText, String fileName) {
         try (FileWriter fileWriter = new FileWriter(fileName)){
             fileWriter.write(jsonText);
@@ -47,21 +78,16 @@ public class Main {
         }
     }
 
+    public static List<Employee> employeeList = new ArrayList<>();
 
-    public static void main(String[] args) throws IOException {
-        String[] columnMapping = {"id", "firstName", "lastName", "country", "age"};
-        String fileName = "data.csv";
-        List<Employee> list = parseCSV(columnMapping, fileName);
-        list.forEach(System.out :: println);
+    public static void main(String[] args) {
+        String fileNameXML = "data.xml";
+        parseXML(fileNameXML);
+        employeeList.forEach(System.out :: println);
 
-        String json = listToJson(list);
-        System.out.println(json);
+        String json = listToJson(employeeList);
+        String fileNameJSON = "data.json";
 
-        String jsonFileName = "data.json";
-        writeString(json, jsonFileName);
+        writeString(json,fileNameJSON);
     }
-
-
-
-
 }
